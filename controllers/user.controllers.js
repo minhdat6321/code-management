@@ -11,10 +11,17 @@ userController.createUser = async (req, res, next) => {
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
   }
-  const info = req.body
+  const { name, role } = req.body;
+  const info = { name, role };
   try {
     //always remember to control your inputs
-    if (!info) throw new AppError(402, "Bad Request", "Create User Error")
+    if (!name) throw new AppError(402, "Bad Request", "Create User Error: Missing name");
+    // Check if a user with the same name already exists
+    const userExisted = await User.findOne({ name });
+    if (userExisted) {
+      throw new AppError(400, "Bad Request", "User with this name already exists");
+    }
+
     //mongoose query
     const created = await User.create(info)
     sendResponse(res, 200, true, { data: created }, null, "Create User Success")
@@ -128,9 +135,8 @@ userController.deleteUser = async (req, res, next) => {
     const userTarget = await User.findById(targetId)
     if (!userTarget) sendResponse(res, 404, false, null, "Not found", "Can't find User with this id");
     //mongoose query
-    const updated = await User.findByIdAndDelete(targetId, options)
-
-    sendResponse(res, 200, true, { data: updated }, null, "Delete user success")
+    const updated = await User.findByIdAndUpdate(targetId, { isDeleted: true }, options);
+    sendResponse(res, 200, true, { data: updated }, null, "User soft deleted successfully")
   } catch (err) {
     next(err)
   }

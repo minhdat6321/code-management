@@ -29,9 +29,9 @@ taskController.createTask = async (req, res, next) => {
 
     if (!name || !description || !status) throw new AppError(400, "Bad Request", "Missing name / description / status")
 
-
-    const taskExisted = await Task.findOne({ info });
-    if (taskExisted) throw new AppError(400, "Bad request", "Task is existed");
+    // Check if a task with the same name already exists
+    const taskExisted = await Task.findOne({ name });
+    if (taskExisted) throw new AppError(400, "Bad request", "Task with this name already exists");
     //mongoose query
     const created = await Task.create(info)
     sendResponse(res, 200, true, { data: created }, null, "Create Task Success")
@@ -54,9 +54,9 @@ taskController.getAllTasks = async (req, res, next) => {
 
   try {
     //express validate
-    // if (name) filter.name = new RegExp(name, 'i');
-    // if (description) filter.description = new RegExp(description, 'i');
-    // if (status !== "pending") filter.status = status;
+    if (name) filter.name = new RegExp(name, 'i');
+    if (description) filter.description = new RegExp(description, 'i');
+    if (status !== "pending") filter.status = status;
     console.log("filter", filter)
     console.log("req query ", req.query)
     //mongoose query
@@ -103,6 +103,12 @@ taskController.updateTask = async (req, res, next) => {
     // Find the task by ID
     const taskTarget = await Task.findById(targetId);
     if (!taskTarget) return sendResponse(res, 404, false, null, "Not found", "Can't find task with this ID");
+
+    // Check if the task is already done
+    if (taskTarget.status === "done" && updateInfo.status !== "archive") {
+      throw new AppError(400, "Bad Request", "A completed task can only be archived");
+    }
+
 
     // 1. Unassign Task
     if (taskTarget.assignedTo && assignedTo === null) {
@@ -151,9 +157,8 @@ taskController.deleteTask = async (req, res, next) => {
     const taskTarget = await Task.findById(targetId)
     if (!taskTarget) sendResponse(res, 404, false, null, "Not found", "Can't find task with this id");
     //mongoose query
-    const updated = await Task.findByIdAndDelete(targetId, options)
-
-    sendResponse(res, 200, true, { data: updated }, null, "Delete task success")
+    const updated = await Task.findByIdAndUpdate(targetId, { isDeleted: true }, options);
+    sendResponse(res, 200, true, { data: updated }, null, "Task soft deleted successfully")
   } catch (err) {
     next(err)
   }

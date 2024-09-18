@@ -40,14 +40,14 @@ userController.getAllUsers = async (req, res, next) => {
   const { name, role } = req.query;
 
   // empty filter mean get all
-  const filter = {}
+  const filter = { isDeleted: false }
 
   try {
     if (name) filter.name = new RegExp(name, 'i');
     if (role) filter.role = role;
     //mongoose query
     const listOfFound = await User.find(filter)
-    sendResponse(res, 200, true, { data: listOfFound }, null, "Found list of uesers success")
+    sendResponse(res, 200, true, { data: listOfFound }, null, "Found list of users success")
   } catch (err) {
     next(err)
   }
@@ -65,12 +65,11 @@ userController.getUserById = async (req, res, next) => {
 
   try {
 
-    const userTarget = await User.findById(targetId)
-    if (!userTarget) sendResponse(res, 404, false, null, "Not found", "Can't find User with this id");
+    const userTarget = await User.findById(targetId).populate("tasks")
+    if (!userTarget || userTarget.isDeleted) sendResponse(res, 404, false, null, "Not found", "Can't find User with this id");
     //mongoose query
-    const userFound = await User.findById(targetId).populate("tasks")
-    if (!userFound) sendResponse(res, 404, false, null, "Not found", "Can't find user with this id");
-    sendResponse(res, 200, true, { data: userFound }, null, "Find employee by ID success")
+    if (!userTarget) sendResponse(res, 404, false, null, "Not found", "Can't find user with this id");
+    sendResponse(res, 200, true, { data: userTarget }, null, "Find employee by ID success")
   } catch (err) {
     next(err)
   }
@@ -86,12 +85,10 @@ userController.getTasksByUserId = async (req, res, next) => {
   const { targetId } = req.params
 
   try {
-    const userTarget = await User.findById(targetId)
-    if (!userTarget) sendResponse(res, 404, false, null, "Not found", "Can't find User with this id");
-    //mongoose query
-    const userFound = await User.findById(targetId).populate("tasks")
-    if (!userFound) sendResponse(res, 404, false, null, "Not found", "Can't find user with this id");
-    sendResponse(res, 200, true, { tasks: userFound.tasks }, null, "Find employees'TASK by ID success")
+    const userTarget = await User.findById(targetId).populate("tasks")
+    if (!userTarget || userTarget.isDeleted) sendResponse(res, 404, false, null, "Not found", "Can't find User with this id");
+
+    sendResponse(res, 200, true, { tasks: userTarget.tasks }, null, "Find employees'TASK by ID success")
   } catch (err) {
     next(err)
   }
@@ -108,7 +105,7 @@ userController.editUser = async (req, res, next) => {
   const options = { new: true }
   try {
     const userTarget = await User.findById(targetId)
-    if (!userTarget) sendResponse(res, 404, false, null, "Not found", "Can't find User with this id");
+    if (!userTarget || userTarget.isDeleted) sendResponse(res, 404, false, null, "Not found", "Can't find User with this id");
 
     if (!updateInfo) throw new AppError(400, "Bad Request", "Require Update Information for an Employee ID")
     //mongoose query
@@ -133,7 +130,7 @@ userController.deleteUser = async (req, res, next) => {
   const options = { new: true }
   try {
     const userTarget = await User.findById(targetId)
-    if (!userTarget) sendResponse(res, 404, false, null, "Not found", "Can't find User with this id");
+    if (!userTarget || userTarget.isDeleted) sendResponse(res, 404, false, null, "Not found", "Can't find User with this id");
     //mongoose query
     const updated = await User.findByIdAndUpdate(targetId, { isDeleted: true }, options);
     sendResponse(res, 200, true, { data: updated }, null, "User soft deleted successfully")
